@@ -1,47 +1,70 @@
-import { useEffect, useState  } from 'react';
-import { api  } from '../../services/api';
+import { useEffect, useState } from 'react';
+import io from 'socket.io-client';
+import { api } from '../../services/api';
 import style from './style.module.scss';
 
 
 import logoimg from '../../assets/logo.svg';
 
 type Message = {
-   id: strind;
-   text: string;
-   user: {
-     name: string;
-     avatar_url: string;
-   }
+  id: string;
+  text: string;
+  user: {
+    name: string;
+    avatar_url: string;
+  }
 }
 
-export function MessageList(){
- const [messages, setMessages]= useState<Message[]>([]);      
+let messagesQueue: Message[] = [];
 
-  useEffect(()=>{
-	api.get<Message[]>('last').then(response => {
-      	  setMessages(response.data);				   
-  	});	
-  },[]);    
-  return(
+const socket = io('http://localhost:8080');
+
+socket.on('new_message', (newMessage: Message) => {
+  messagesQueue.push(newMessage);
+});
+
+export function MessageList() {
+  const [messages, setMessages] = useState<Message[]>([]);
+
+  useEffect(() => {
+    setInterval(() => {
+      if (messagesQueue.length > 0) {
+        setMessages(prevState => [
+          messagesQueue[0],
+          prevState[0],
+          prevState[1],
+        ].filter(Boolean))
+
+        messagesQueue.shift();
+      }
+    }, 300)
+  }, [])
+
+  useEffect(() => {
+    api.get<Message[]>('last').then(response => {
+      setMessages(response.data);
+    });
+  }, []);
+  return (
     <div className={style.messageListWrapper}>
-    	 <img src={logoimg} alt="dowhile é a imagem da logo"/>
-	 
-	 <ul className={style.messaList}>
-	     
-	 {messages.map(message =>{
-	    return(
-	      	 <li  key={message.id} className={style.message}>
-	     	 <p className={style.messageContent}>{message.text}</p>
-		 <div className={style.messageUser}>
-		      <div className={style.userImage}>
-		      	   <img src={message.user.avatar_url} alt={message.user.name}/>
-		      </div>	   
-		      <span>{message.user.name}</span>
-		 </div>
-	     </li>
-	    );
-	 })}	       
-	 </ul>
+      <img src={logoimg} alt="dowhile é a imagem da logo" />
+
+      <ul className={style.messaList}>
+
+        {messages.map(message => {
+          return (
+            <li key={message.id} className={style.message}>
+              <p className={style.messageContent}>{message.text}</p>
+              <div className={style.messageUser}>
+                <div className={style.userImage}>
+                  <img src={message.user.avatar_url} alt={message.user.name} />
+                </div>
+                <span>{message.user.name}</span>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
